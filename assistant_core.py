@@ -1,15 +1,11 @@
 import os
 import re
 import json
-from dotenv import load_dotenv
 import requests
 from email_tool import send_email
 import streamlit as st
 
-# Load environment variables
-load_dotenv()
-
-# Global variables
+# Global var
 api_key = None
 context_content = ""
 
@@ -18,13 +14,18 @@ def setup_assistant(context_text):
     global api_key, context_content
     
     try:
-        # Get Together AI API key
-        api_key = os.getenv("TOGETHER_API_KEY")
+        # Get API key from Streamlit secrets or environment variables
+        try:
+            api_key = st.secrets["TOGETHER_API_KEY"]
+        except (KeyError, FileNotFoundError):
+            # Fallback to environment variable for local development
+            api_key = os.getenv("TOGETHER_API_KEY")
+        
         if not api_key:
-            st.error("TOGETHER_API_KEY not found in environment variables")
+            st.error("TOGETHER_API_KEY not found in Streamlit secrets or environment variables")
             return False
         
-        # Test the API key with a simple request
+        # Test the API key
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
@@ -47,7 +48,6 @@ def setup_assistant(context_text):
             st.error(f"API key test failed: {response.status_code} - {response.text}")
             return False
         
-        # Store context content
         context_content = context_text
         
         return True
@@ -67,12 +67,10 @@ def get_response(question, email_list):
         if not context_content:
             return "No training content available. Please add training content first."
         
-        # Check if query is asking to send email
         email_pattern = r'\b(?:send|email|mail)\b.*\b(?:email|mail)\b'
         if re.search(email_pattern, question.lower()) and email_list:
             return handle_email_request(question, email_list)
         
-        # Create system prompt with context restriction
         system_prompt = f"""You are a helpful assistant that answers questions ONLY based on the training content provided below.
 
 IMPORTANT RULES:
